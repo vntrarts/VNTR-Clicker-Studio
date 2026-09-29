@@ -1,0 +1,7 @@
+export type Shape='rounded'|'square'|'circle'|'pill'|'bar';
+export type ArtworkMode='raised'|'engraved'|'flat';
+export type ArtworkSource='image'|'svg'|'text'|'icon'|'blocks';
+export type ViewMode='assembled'|'exploded';
+export interface DesignSettings{shape:Shape;width:number;depth:number;baseHeight:number;capHeight:number;cornerRadius:number;wall:number;tolerance:number;mxDepth:number;artworkMode:ArtworkMode;artworkScale:number;artworkHeight:number;imageThreshold:number;imageInvert:boolean;artworkColor:string;baseColor:string;capColor:string;keyring:boolean;showSwitch:boolean;cutaway:boolean;viewMode:ViewMode;nozzle:number;printer:string;text:string;font:string;imageColors:number;printOrientation:'face-down'|'face-up';capClearance:number;stemHeight:number;}
+export interface DesignDocument{version:1;settings:DesignSettings;artworkSource:ArtworkSource;artworkSvg?:string;artworkName?:string;}
+export const DEFAULTS:DesignSettings={shape:'rounded',width:55,depth:32,baseHeight:7,capHeight:2.6,cornerRadius:5,wall:1.8,tolerance:.25,mxDepth:5.8,artworkMode:'raised',artworkScale:.78,artworkHeight:.55,imageThreshold:128,imageInvert:false,artworkColor:'#ff5b3d',baseColor:'#20242b',capColor:'#2e343e',keyring:false,showSwitch:true,cutaway:false,viewMode:'assembled',nozzle:.4,printer:'Anycubic Vyper',text:'VNTR',font:'Arial',imageColors:4,printOrientation:'face-down',capClearance:.2,stemHeight:1.2};
