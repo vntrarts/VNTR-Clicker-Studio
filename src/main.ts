@@ -105,10 +105,13 @@ function render(){
   const sw=new THREE.Mesh(manifoldToThree(design.switchPart,THREE),new THREE.MeshStandardMaterial({color:0x252a31,roughness:.42,metalness:.15,clippingPlanes:settings.cutaway?[new THREE.Plane(new THREE.Vector3(-1,0,0),0)]:[]}));
   sw.name='switch-key';\n  if(settings.viewMode==='exploded'){cap.position.z=settings.baseHeight+settings.capHeight+7;sw.position.z=settings.baseHeight+settings.capHeight+14}else{cap.position.z=settings.baseHeight;sw.position.z=settings.baseHeight}
   root.add(base,cap);if(settings.showSwitch)root.add(sw);
-  if(design.artwork){
-    const ag=buildArtwork(svg,settings);ag.position.z+=settings.baseHeight;
-    if(settings.viewMode==='exploded')ag.position.z+=settings.baseHeight+settings.capHeight+7;
-    ag.traverse((o:any)=>{if(o.isMesh)o.material.clippingPlanes=settings.cutaway?[new THREE.Plane(new THREE.Vector3(-1,0,0),0)]:[]});root.add(ag);
+  if(design.artworkParts?.length){
+    for(const part of design.artworkParts){
+      const ag=new THREE.Mesh(manifoldToThree(part.mesh,THREE),material(part.color,.58));
+      ag.position.z=settings.viewMode==='exploded'?settings.baseHeight+settings.capHeight+7:settings.baseHeight;
+      if(settings.cutaway)ag.material.clippingPlanes=[new THREE.Plane(new THREE.Vector3(-1,0,0),0)];
+      root.add(ag);
+    }
   }
   const p=printer(settings.printer),sz=design.stats.size;
   const bedWarn=sz[0]>p.bed[0]||sz[1]>p.bed[1]||sz[2]>p.bed[2];
@@ -183,7 +186,7 @@ q('load').onclick=()=>{try{const raw=localStorage.getItem('vntr-clicker-design')
 q('stl').onclick=()=>design&&download(meshToSTL(design.base),'vntr-base.stl');
 q('capstl').onclick=()=>design&&download(meshToSTL(design.cap),'vntr-cap.stl');
 q('fullstl').onclick=()=>design&&download(meshToSTL(design.full),'vntr-assembled.stl');
-q('mf').onclick=()=>design&&download(meshesTo3MF([{name:'VNTR Base',mesh:design.base,color:settings.baseColor},{name:'VNTR Cap',mesh:design.cap,color:settings.capColor,z:settings.baseHeight},...(design.artwork?[{name:'VNTR Artwork',mesh:design.artwork,color:settings.artworkColor,z:settings.baseHeight}]:[])]),'vntr-clicker.3mf');
+q('mf').onclick=()=>design&&download(meshesTo3MF([{name:'VNTR Base',mesh:design.base,color:settings.baseColor},{name:'VNTR Cap',mesh:design.cap,color:settings.capColor,z:settings.baseHeight},...(design.artworkParts||[]).map((p:any,i:number)=>({name:'VNTR Artwork '+(i+1),mesh:p.mesh,color:p.color,z:settings.baseHeight}))]),'vntr-clicker.3mf');
 q('json').onclick=()=>download(new Blob([JSON.stringify({version:2,settings,artworkSource:source,artworkSvg:svg,artworkName:name},null,2)],{type:'application/json'}),'vntr-clicker.json');
 q('preset').onclick=()=>{const p=printer(settings.printer);download(new Blob([JSON.stringify({printer:p.name,buildVolumeMm:p.bed,nozzleMm:settings.nozzle,layerHeightMm:p.layer,recommendedSpeedMmS:p.recommendedSpeed,maxSpeedMmS:p.maxSpeed,recommendedAccelerationMmS2:p.recommendedAcceleration,maxAccelerationMmS2:p.maxAcceleration,bedTempC:p.bedTemp,hotendMaxC:p.hotendMax,slicers:p.slicer,filaments:p.filaments,notes:p.notes},null,2)],{type:'application/json'}),p.id+'-vntr-profile.json')};
 

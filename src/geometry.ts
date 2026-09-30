@@ -45,28 +45,20 @@ function addKeyring(base:any,s:DesignSettings){
   const hole=Manifold.cylinder(z+2,2.6,2.6,64).translate([x,0,-.5]);
   return base.add(outer).subtract(hole);
 }
-function svgCS(svg:string){
-  const {CrossSection}=api,data=new SVGLoader().parse(svg),polys:any[]=[];
-  for(const path of data.paths)for(const shape of path.toShapes(true)){
-    const pts=shape.extractPoints(72).shape;
-    if(pts.length>=3)polys.push(pts.map((p:any)=>[p.x,-p.y]));
+function svgParts(svg:string,s:DesignSettings){
+  const {CrossSection}=api,data=new SVGLoader().parse(svg),groups=new Map<string,any[]>();let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const path of data.paths){
+    const color=String((path as any).userData?.style?.fill||path.color?.getStyle?.()||s.artworkColor).toUpperCase();
+    for(const shape of path.toShapes(true)){const pts=shape.extractPoints(64),rings=[pts.shape,...(pts.holes||[])];
+      for(const ring of rings)if(ring.length>=3){const poly=ring.map((p:any)=>[p.x,-p.y]);for(const [x,y] of poly){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}if(!groups.has(color))groups.set(color,[]);groups.get(color)!.push(poly)}
+    }
   }
-  if(!polys.length)return null;
-  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  for(const p of polys)for(const [x,y] of p){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
-  const norm=polys.map(p=>p.map(([x,y])=>[x-(minX+maxX)/2,y-(minY+maxY)/2]));
-  return {cs:CrossSection.evenOdd(norm),w:Math.max(1,maxX-minX),h:Math.max(1,maxY-minY)};
+  if(!groups.size)return [];
+  const cx=(minX+maxX)/2,cy=(minY+maxY)/2,scale=Math.min(s.width*.72*s.artworkScale/Math.max(1,maxX-minX),s.depth*.58*s.artworkScale/Math.max(1,maxY-minY)),out:any[]=[];
+  for(const [color,polys] of groups){const cs=CrossSection.evenOdd(polys.map((p:any)=>p.map(([x,y]:number[])=>[(x-cx)*scale,(y-cy)*scale])));const h=s.artworkMode==='flat'?Math.min(.18,s.artworkHeight):s.artworkHeight;let z=s.capHeight-(s.artworkMode==='raised'?Math.min(.02,s.artworkHeight/10):s.artworkMode==='flat'?Math.min(.06,s.artworkHeight):0);if(s.artworkMode==='engraved')z=Math.max(0,s.capHeight-s.artworkHeight+.02);out.push({mesh:cs.extrude(Math.max(.08,h)).translate([0,0,z]),color})}
+  return out;
 }
-function artSolid(svg:string,s:DesignSettings,height=s.artworkHeight){
-  const p=svgCS(svg);if(!p)return null;
-  const scale=Math.min(s.width*.72*s.artworkScale/p.w,s.depth*.58*s.artworkScale/p.h);
-  return p.cs.scale(scale).extrude(Math.max(.08,height));
-}
-function artworkPlacement(svg:string,s:DesignSettings,mode:'raised'|'flat'|'engraved'){
-  const a=artSolid(svg,s,mode==='flat'?Math.min(.18,s.artworkHeight):s.artworkHeight);if(!a)return null;
-  if(mode==='engraved')return a.translate([0,0,Math.max(0,s.capHeight-s.artworkHeight+.02)]);
-  return a.translate([0,0,mode==='raised'?s.capHeight-Math.min(.02,s.artworkHeight/10):Math.max(0,s.capHeight-.06)]);
-}
+function unionArtwork(parts:any[]){if(!parts.length)return null;let u=parts[0].mesh;for(let i=1;i<parts.length;i++)u=u.add(parts[i].mesh);return u}
 function switchPreview(){
   const {Manifold}=api;
   let sw=Manifold.cube([13.8,13.8,5.2],true).translate([0,0,8.6]);
@@ -75,7 +67,7 @@ function switchPreview(){
   return sw;
 }
 export interface Parts{
-  base:any;cap:any;switchPart:any;full:any;artwork:any|null;artworkMode:DesignSettings['artworkMode'];
+  base:any;cap:any;switchPart:any;full:any;artwork:any|null;artworkParts:{mesh:any;color:string}[];artworkMode:DesignSettings['artworkMode'];
   stats:any;validation:any;
 }
 export function buildDesign(s:DesignSettings,svg?:string):Parts{
@@ -104,7 +96,7 @@ export function buildDesign(s:DesignSettings,svg?:string):Parts{
   const m=full.getMesh(),bb=full.boundingBox();
   const warning=s.tolerance<.2?'Low MX tolerance may fit tightly.':s.wall<s.nozzle*1.5?'Wall thickness is below the recommended nozzle multiplier.':s.capClearance<.15?'Cap clearance is tight; test-fit before printing.':null;
   return {
-    base,cap,switchPart:switchPreview(),full,artwork,artworkMode:s.artworkMode,
+    base,cap,switchPart:switchPreview(),full,artwork,artworkParts,artworkMode:s.artworkMode,
     validation:{manifold:true,wall:minWall,warning},
     stats:{vertices:m.vertProperties.length/m.numProp,triangles:m.triVerts.length/3,volume:full.volume(),size:[bb.max[0]-bb.min[0],bb.max[1]-bb.min[1],bb.max[2]-bb.min[2]]}
   };
