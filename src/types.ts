@@ -15,7 +15,7 @@ export interface DesignDocument{version:2;settings:DesignSettings;artworkSource:
 export const DEFAULTS:DesignSettings={
   shape:'rounded',width:55,depth:32,baseHeight:7,capHeight:2.6,cornerRadius:5,wall:1.8,tolerance:.25,mxDepth:5.8,
   artworkMode:'raised',artworkScale:.78,artworkHeight:.55,imageThreshold:128,imageInvert:false,
-  artworkColor:'#ff5b3d',baseColor:'#20242b',capColor:'#2e343e',keyring:false,keyringStyle:'loop',keyringDiameter:5.2,keyringAngle:0,showSwitch:true,cutaway:false,
+  artworkColor:'#8e44ad',baseColor:'#f4f4f2',capColor:'#171717',keyring:false,keyringStyle:'loop',keyringDiameter:5.2,keyringAngle:0,showSwitch:false,cutaway:false,
   viewMode:'assembled',nozzle:.4,printer:'Anycubic Kobra X',text:'VNTR',font:'Arial',imageColors:4,
   printOrientation:'face-down',capClearance:.2,stemHeight:1.2,switchCount:1,switchSpacing:18,removeBackground:true,smoothing:.15
 };
