@@ -48,9 +48,9 @@ app.innerHTML=`
     <div class="seg view-actions"><button class="btn active" id="switch">Switch</button><button class="btn" id="cut">Cutaway</button></div>
   </section>
   <section class="section"><div class="section-head"><h3>Body</h3><span class="unit">mm</span></div><div id="shape"></div><div id="dims"></div></section>
-  <section class="section"><div class="section-head"><h3>Switch & Fit</h3><span class="unit">CHERRY MX</span></div><div id="fit"></div></section>
+  <section class="section"><div class="section-head"><h3>Switch & Fit</h3><span class="unit">CHERRY MX</span></div><div id="fit"></div><div id="switch-layout"></div></section>
   <section class="section"><div class="section-head"><h3>Printer Profile</h3><span id="printer-tag" class="unit">KOBRA X</span></div><div id="print"></div><div id="printer-info"></div></section>
-  <section class="section"><h3>Options</h3><div id="opts"></div></section>
+  <section class="section"><h3>Options</h3><div id="opts"></div><div id="keychain"></div><div id="orientation"></div></section>
   <section class="section"><div class="actions"><button class="download" id="save">Save project</button><button class="download" id="load">Load project</button></div><button class="text-btn" id="reset-design">Reset all settings</button></section>
 </aside>
 
@@ -77,7 +77,7 @@ app.innerHTML=`
     <div class="swatches"><label>Base<input id="base-color" type="color" value="${settings.baseColor}"></label><label>Cap<input id="cap-color" type="color" value="${settings.capColor}"></label><label>Art<input id="art2" type="color" value="${settings.artworkColor}"></label></div>
   </section>
   <section class="section export-section"><div class="section-head"><h3>Export</h3><span class="badge green">PRINT READY</span></div>
-    <div class="actions"><button class="download primary" id="mf">Export 3MF</button><button class="download" id="stl">Base STL</button><button class="download" id="capstl">Cap STL</button><button class="download" id="fullstl">Assembled STL</button><button class="download" id="preset">Printer preset</button><button class="download" id="json">Project JSON</button></div>
+    <div class="actions"><button class="download primary" id="mf">Export 3MF</button><button class="download" id="stl">Base STL</button><button class="download" id="capstl">Cap STL</button><button class="download" id="fullstl">Assembled STL</button><button class="download" id="png">Render PNG</button><button class="download" id="preset">Printer preset</button><button class="download" id="json">Project JSON</button></div>
     <p class="tiny">3MF exports separate base/cap/art objects with filament colors. Engraved artwork is boolean-cut into the cap.</p>
   </section>
   <section class="section"><div class="section-head"><h3>Validation & Model</h3><span class="unit">LIVE</span></div><div class="stats" id="stats"></div></section>
@@ -102,10 +102,12 @@ function render(){
   root.rotation.set(settings.printOrientation==='face-up'?Math.PI:0,0,0);
   const base=new THREE.Mesh(manifoldToThree(design.base,THREE),material(settings.baseColor,.76));
   const cap=new THREE.Mesh(manifoldToThree(design.cap,THREE),material(settings.capColor,.6));
-  const sw=new THREE.Mesh(manifoldToThree(design.switchPart,THREE),new THREE.MeshStandardMaterial({color:0x252a31,roughness:.42,metalness:.15,clippingPlanes:settings.cutaway?[new THREE.Plane(new THREE.Vector3(-1,0,0),0)]:[]}));
-  sw.name='switch-key';
-  if(settings.viewMode==='exploded'){cap.position.z=settings.baseHeight+settings.capHeight+7;sw.position.z=settings.baseHeight+settings.capHeight+14}else{cap.position.z=settings.baseHeight;sw.position.z=settings.baseHeight}
-  root.add(base,cap);if(settings.showSwitch)root.add(sw);
+  const switchGroup=new THREE.Group(); switchGroup.name='switch-group';
+  const swMat=new THREE.MeshStandardMaterial({color:0x252a31,roughness:.42,metalness:.15,clippingPlanes:settings.cutaway?[new THREE.Plane(new THREE.Vector3(-1,0,0),0)]:[]});
+  const placements=design.switchPlacements||[[0,0]];
+  placements.forEach((p:number[],idx:number)=>{const sw=new THREE.Mesh(manifoldToThree(design.switchPart,THREE),swMat);sw.name='switch-key-'+idx;sw.position.x=p[0];sw.position.y=p[1];switchGroup.add(sw)});
+  if(settings.viewMode==='exploded'){cap.position.z=settings.baseHeight+settings.capHeight+7;switchGroup.position.z=settings.baseHeight+settings.capHeight+14}else{cap.position.z=settings.baseHeight;switchGroup.position.z=settings.baseHeight}
+  root.add(base,cap);if(settings.showSwitch)root.add(switchGroup);
   if(design.artworkParts?.length){
     for(const part of design.artworkParts){
       const ag=new THREE.Mesh(manifoldToThree(part.mesh,THREE),material(part.color,.58));
@@ -126,6 +128,8 @@ function render(){
     '<div class="stat"><b>'+p.recommendedSpeed+' mm/s</b><span>recommended speed</span></div>'+
     '<div class="validation '+(warning?'warn':'ok')+'"><span class="dot"></span>'+(warning||'Watertight Manifold geometry · within printer envelope')+'</div>';
   q('printer-tag').textContent=p.name.toUpperCase().replace('ANYCUBIC ','');
+  const orient=q('orientation');
+  if(orient) orient.innerHTML='<div class="profile-card"><b>Print orientation</b><span>'+settings.printOrientation.toUpperCase()+' · '+(settings.printOrientation==='face-down'?'best surface detail / minimal support':'top surface visible / support may be required')+'</span></div>';
   q('printer-info').innerHTML='<div class="profile-card"><b>'+p.name+'</b><span>Bed '+p.bed.join(' × ')+' mm · '+p.defaultNozzle+' mm standard nozzle</span><span>'+p.recommendedSpeed+' mm/s recommended · '+p.maxSpeed+' mm/s max</span><span>Layer '+p.layer[0]+'–'+p.layer[1]+' mm · '+p.slicer.join(' / ')+'</span></div>';
 }
 async function build(){
@@ -139,19 +143,26 @@ function queue(){clearTimeout(buildTimer);buildTimer=window.setTimeout(build,140
 q('shape').append(select('Shape','shape',['rounded','square','circle','pill','bar']));
 q('dims').append(field('Width','width',20,90,1),field('Depth','depth',20,90,1),field('Base height','baseHeight',4,16,.5),field('Cap height','capHeight',1.5,5,.1),field('Corner radius','cornerRadius',0,20,.5));
 q('fit').append(field('MX tolerance','tolerance',.1,.6,.05),field('MX cavity depth','mxDepth',3,6.5,.1),field('Wall thickness','wall',1,4,.1),field('Cap clearance','capClearance',.1,.6,.05),field('Stem height','stemHeight',.6,2.5,.1));
+q('switch-layout').append(select('Switch count','switchCount',['1','2','3']),field('Switch spacing','switchSpacing',12,38,1));
 q('print').append(select('Printer','printer',PRINTERS.map(p=>p.name)),select('Nozzle','nozzle',['0.25','0.4','0.6','0.8']));
-q('opts').append(check('Keyring loop','keyring'),check('Show Cherry MX switch','showSwitch'),check('Cutaway section','cutaway'));
+q('opts').append(check('Keychain attachment','keyring'),check('Show Cherry MX switch','showSwitch'),check('Cutaway section','cutaway'),check('Remove image background','removeBackground'));
+q('keychain').append(select('Keychain style','keyringStyle',['loop','hole']),field('Hole diameter','keyringDiameter',3,10,.2),field('Angle','keyringAngle',0,330,15));
+q('orientation').append(select('Orientation','printOrientation',['face-down','face-up']));
 
 function syncPrinter(){const p=printer(settings.printer);if(!p.nozzles.includes(settings.nozzle))settings.nozzle=p.defaultNozzle;queue()}
 const printerSelect=q('print').querySelector('select') as HTMLSelectElement;printerSelect.onchange=()=>{settings.printer=printerSelect.value;syncPrinter()};
 const nozzleSelect=q('print').querySelectorAll('select')[1] as HTMLSelectElement;nozzleSelect.onchange=()=>{settings.nozzle=+nozzleSelect.value;queue()};
+const switchCountSelect=q('switch-layout').querySelector('select') as HTMLSelectElement; switchCountSelect.onchange=()=>{settings.switchCount=+switchCountSelect.value;queue()};
+const keyStyleSelect=q('keychain').querySelector('select') as HTMLSelectElement; keyStyleSelect.onchange=()=>{settings.keyringStyle=keyStyleSelect.value as any;queue()};
+const orientationSelect=q('orientation').querySelector('select') as HTMLSelectElement; orientationSelect.onchange=()=>{settings.printOrientation=orientationSelect.value as any;render()};
+
 
 function sourcePanel(){
   const box=q('source');box.innerHTML='';q('source-name').textContent=source.toUpperCase();
   if(source==='image'){
     const d=E('div',{class:'drop'},'<strong>Drop image here</strong><span>PNG · JPG · WEBP</span><small>or click to browse</small>');
     const input=E('input',{class:'file',type:'file',accept:'image/*'}) as HTMLInputElement;d.onclick=()=>input.click();
-    input.onchange=async()=>{const f=input.files?.[0];if(!f)return;name=f.name;const data=await new Promise<string>(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result));fr.readAsDataURL(f)});imagePreview=data;svg=await rasterToSvg(data,settings.imageColors,settings.imageThreshold,settings.imageInvert);sourcePanel();queue()};
+    input.onchange=async()=>{const f=input.files?.[0];if(!f)return;name=f.name;const data=await new Promise<string>(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result));fr.readAsDataURL(f)});imagePreview=data;svg=await rasterToSvg(data,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing);sourcePanel();queue()};
     box.append(d,input,E('div',{class:'source-preview'},imagePreview?'<img src="'+imagePreview+'" alt="Artwork preview">':'<span class="tiny">No image selected</span>'));
   }else if(source==='svg'){
     const t=E('textarea',{class:'codebox',placeholder:'Paste SVG markup here…'},svg) as HTMLTextAreaElement;t.oninput=()=>{svg=t.value;queue()};box.append(t);
@@ -175,8 +186,9 @@ q('mode-raised').onclick=()=>{settings.artworkMode='raised';active('mode-raised'
 q('mode-engraved').onclick=()=>{settings.artworkMode='engraved';active('mode-engraved',['mode-color','mode-raised','mode-engraved']);queue()};
 function fitView(){camera.position.set(72,58,68);controls.target.set(0,0,settings.baseHeight/2);controls.update()}q('home').onclick=fitView;q('top').onclick=()=>{camera.position.set(0,0,125);controls.target.set(0,0,0);controls.update()};q('front').onclick=()=>{camera.position.set(0,95,12);controls.target.set(0,0,6);controls.update()};
 q('dark').onclick=()=>{dark=!dark;document.body.classList.toggle('light',!dark);q('dark').textContent=dark?'☾':'☀'};
+q('png').onclick=()=>renderer.domElement.toBlob(b=>{if(b)download(b,'vntr-clicker-preview.png')},'image/png');
 
-function press(on:boolean){pressed=on;const s=root.getObjectByName('switch-key');if(s)s.position.z=on?-1.1:0}
+function press(on:boolean){pressed=on;const g=root.getObjectByName('switch-group');if(g)g.position.z=on?-1.1:0}
 q('press-key').onpointerdown=()=>press(true);q('press-key').onpointerup=()=>press(false);q('press-key').onpointerleave=()=>press(false);
 addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat){e.preventDefault();press(true)}});addEventListener('keyup',e=>{if(e.code==='Space')press(false)});
 
@@ -192,7 +204,7 @@ q('json').onclick=()=>download(new Blob([JSON.stringify({version:2,settings,artw
 q('preset').onclick=()=>{const p=printer(settings.printer);download(new Blob([JSON.stringify({printer:p.name,buildVolumeMm:p.bed,nozzleMm:settings.nozzle,layerHeightMm:p.layer,recommendedSpeedMmS:p.recommendedSpeed,maxSpeedMmS:p.maxSpeed,recommendedAccelerationMmS2:p.recommendedAcceleration,maxAccelerationMmS2:p.maxAcceleration,bedTempC:p.bedTemp,hotendMaxC:p.hotendMax,slicers:p.slicer,filaments:p.filaments,notes:p.notes},null,2)],{type:'application/json'}),p.id+'-vntr-profile.json')};
 
 for(const [id,key] of [['art-color','artworkColor'],['base-color','baseColor'],['cap-color','capColor'],['art2','artworkColor']] as any)q(id).addEventListener('input',(e:any)=>{settings[key]=e.target.value;queue()});
-q('threshold').oninput=(e:any)=>{settings.imageThreshold=+(e.target as HTMLInputElement).value;q('threshold-value').textContent=String(settings.imageThreshold);if(source==='image'&&imagePreview)rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert).then(x=>{svg=x;queue()})};
-q('colors').oninput=(e:any)=>{settings.imageColors=+(e.target as HTMLInputElement).value;q('colors-value').textContent=String(settings.imageColors);if(source==='image'&&imagePreview)rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert).then(x=>{svg=x;queue()})};
+q('threshold').oninput=(e:any)=>{settings.imageThreshold=+(e.target as HTMLInputElement).value;q('threshold-value').textContent=String(settings.imageThreshold);if(source==='image'&&imagePreview)rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing).then(x=>{svg=x;queue()})};
+q('colors').oninput=(e:any)=>{settings.imageColors=+(e.target as HTMLInputElement).value;q('colors-value').textContent=String(settings.imageColors);if(source==='image'&&imagePreview)rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing).then(x=>{svg=x;queue()})};
 
 function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();build();
