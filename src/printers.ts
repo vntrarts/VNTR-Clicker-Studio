@@ -11,7 +11,7 @@ export const PRINTERS:PrinterProfile[]=[
     nozzles:[.25,.4,.6,.8],defaultNozzle:.4,layer:[.08,.28],recommendedSpeed:300,maxSpeed:600,
     recommendedAcceleration:10000,maxAcceleration:20000,bedTemp:100,hotendMax:300,
     filaments:['PLA','PETG','TPU','PVA','PLA-CF','PETG-CF','ASA'],slicer:['Anycubic Slicer','PrusaSlicer','Cura'],
-    notes:'Native 4-color; expandable to 19 with ACE ecosystem. 0.4 mm hardened-steel nozzle is standard.'
+    notes:'260 × 260 × 260 mm build volume. Native 4-color, expandable up to 19 with ACE 2 Pro ecosystem. 0.4 mm hardened-steel nozzle; 0.25 / 0.6 / 0.8 mm options.'
   },
   {
     id:'vyper',name:'Anycubic Vyper',manufacturer:'Anycubic',bed:[245,245,260],
