@@ -16,6 +16,7 @@ let imagePreview='';
 let design:any=null;
 let scene:THREE.Scene,camera:THREE.PerspectiveCamera,renderer:THREE.WebGLRenderer,controls:OrbitControls,root:THREE.Group;
 let buildTimer:number|undefined;
+let buildGeneration=0;
 let dark=true,pressed=false;
 
 const E=(tag:string,attrs:any={},html='')=>{const e=document.createElement(tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,String(v)));e.innerHTML=html;return e};
@@ -118,7 +119,7 @@ function render(){
   root.add(base,cap);if(settings.showSwitch)root.add(switchGroup);
   if(design.artworkParts?.length){
     for(const part of design.artworkParts){
-      const ag=new THREE.Mesh(manifoldToThree(part.mesh,THREE),material(part.color,.58));
+      const ag=new THREE.Mesh(manifoldToThree(part.mesh,THREE),material(settings.artworkColor,.58));
       ag.position.z=settings.viewMode==='exploded'?settings.baseHeight+settings.capHeight+7:settings.baseHeight;
       if(settings.cutaway)ag.material.clippingPlanes=[new THREE.Plane(new THREE.Vector3(-1,0,0),0)];
       root.add(ag);
@@ -141,12 +142,23 @@ function render(){
   q('printer-info').innerHTML='<div class="profile-card"><b>'+p.name+'</b><span>Bed '+p.bed.join(' × ')+' mm · '+p.defaultNozzle+' mm standard nozzle</span><span>'+p.recommendedSpeed+' mm/s recommended · '+p.maxSpeed+' mm/s max</span><span>Layer '+p.layer[0]+'–'+p.layer[1]+' mm · '+p.slicer.join(' / ')+'</span></div>';
 }
 async function build(){
-  try{q('status').textContent='Generating watertight geometry…';await initManifold();
+  const generation=++buildGeneration;
+  try{
+    q('status').textContent='Updating 3D model…';
+    await initManifold();
+    if(generation!==buildGeneration)return;
     if(design)for(const k of ['base','cap','switchPart','full','artwork'])try{design[k]?.delete?.()}catch{}
-    design=buildDesign(settings,svg);render();q('status').textContent=design.validation.warning||'Geometry ready';
-  }catch(e){console.error(e);q('status').textContent=(e as Error).message||'Check dimensions / fit settings'}
+    const next=buildDesign(settings,svg);
+    if(generation!==buildGeneration){for(const k of ['base','cap','switchPart','full','artwork'])try{next[k]?.delete?.()}catch{};return}
+    design=next;
+    render();
+    q('status').textContent=design.validation.warning||'Model updated';
+  }catch(e){
+    console.error(e);
+    if(generation===buildGeneration)q('status').textContent=(e as Error).message||'Check dimensions / fit settings';
+  }
 }
-function queue(){clearTimeout(buildTimer);buildTimer=window.setTimeout(build,140)}
+function queue(){clearTimeout(buildTimer);buildTimer=window.setTimeout(build,80)}
 
 q('shape').append(select('Shape','shape',['rounded','square','circle','pill','bar']));
 q('dims').append(field('Width','width',20,90,1),field('Depth','depth',20,90,1),field('Base height','baseHeight',4,16,.5),field('Cap height','capHeight',1.5,5,.1),field('Corner radius','cornerRadius',0,20,.5));
@@ -239,15 +251,20 @@ function sourcePanel(){
       try{name=file.name;svg=await readFileAsText(file);if(!/<svg[\s>]/i.test(svg))throw new Error('The selected file does not contain valid SVG markup.');setStatus('SVG loaded — generating preview…');sourcePanel();queue()}
       catch(err){console.error(err);setStatus((err as Error)?.message||'Could not import SVG')}
     });
-    const t=E('textarea',{class:'codebox',placeholder:'Or paste SVG markup here…'},svg) as HTMLTextAreaElement;
-    t.addEventListener('input',()=>{svg=t.value;setStatus('SVG changed — generating…');queue()});
-    box.append(d,input,t);
+    const paste=E('button',{class:'text-btn svg-paste-toggle'},'Paste SVG code instead');
+    const wrap=E('div',{class:'svg-paste-wrap'});wrap.style.display='none';
+    const t=E('textarea',{class:'codebox',placeholder:'Paste SVG markup here…'},svg) as HTMLTextAreaElement;
+    t.addEventListener('input',()=>{svg=t.value;setStatus('SVG changed — updating model…');queue()});
+    paste.addEventListener('click',()=>{const open=wrap.style.display!=='none';wrap.style.display=open?'none':'block';paste.textContent=open?'Paste SVG code instead':'Hide SVG code editor'});
+    wrap.append(t);box.append(d,input,paste,wrap);
   }else if(source==='icon'){
     const icons:any={star:'M12 2l2.8 6 6.2.5-4.7 4 1.4 6.1L12 15.4 6.3 18.6l1.4-6.1-4.7-4L9.2 8z',heart:'M12 21S4 16.2 4 9.7A4.7 4.7 0 0 1 12 6a4.7 4.7 0 0 1 8 3.7C20 16.2 12 21 12 21z',check:'M5 12l4 4L19 6',bolt:'M13 2L4 14h6l-1 8 9-12h-6z',diamond:'M12 2l8 10-8 10L4 12z'};
     const g=E('div',{class:'icon-grid'});Object.keys(icons).forEach(k=>{const b=E('button',{class:'icon-btn'},'<svg viewBox="0 0 24 24"><path d="'+icons[k]+'" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>'+k+'</span>');b.onclick=()=>{svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="'+icons[k]+'" fill="#000"/></svg>';queue()};g.append(b)});box.append(g);
   }else{
-    const t=E('textarea',{class:'text-input',placeholder:'Type your text…'},settings.text) as HTMLTextAreaElement;t.oninput=()=>{settings.text=t.value;svg=defaultArtwork(settings);queue()};
-    const f=E('div',{class:'field'},'') as HTMLDivElement;f.append(select('Font','font',['Arial','Impact','Georgia','Courier New']));box.append(t,f);
+    const t=E('textarea',{class:'text-input',placeholder:'Type your text…'},settings.text) as HTMLTextAreaElement;t.oninput=()=>{settings.text=t.value;svg=defaultArtwork(settings);setStatus('Text changed — updating model…');queue()};
+    const f=E('div',{class:'field'},'') as HTMLDivElement;f.append(select('Font','font',['Arial','Impact','Georgia','Courier New']));
+    const fs=f.querySelector('select') as HTMLSelectElement;fs.onchange=()=>{settings.font=fs.value;svg=defaultArtwork(settings);setStatus('Font changed — updating model…');queue()};
+    box.append(t,f);
   }
 }
 sourcePanel();
@@ -282,7 +299,8 @@ q('mf').onclick=()=>design&&download(meshesTo3MF([{name:'VNTR Base',mesh:design.
 q('json').onclick=()=>download(new Blob([JSON.stringify({version:2,settings,artworkSource:source,artworkSvg:svg,artworkName:name},null,2)],{type:'application/json'}),'vntr-clicker.json');
 q('preset').onclick=()=>{const p=printer(settings.printer);download(new Blob([JSON.stringify({printer:p.name,buildVolumeMm:p.bed,nozzleMm:settings.nozzle,layerHeightMm:p.layer,recommendedSpeedMmS:p.recommendedSpeed,maxSpeedMmS:p.maxSpeed,recommendedAccelerationMmS2:p.recommendedAcceleration,maxAccelerationMmS2:p.maxAcceleration,bedTempC:p.bedTemp,hotendMaxC:p.hotendMax,slicers:p.slicer,filaments:p.filaments,notes:p.notes},null,2)],{type:'application/json'}),p.id+'-vntr-profile.json')};
 
-for(const [id,key] of [['art-color','artworkColor'],['base-color','baseColor'],['cap-color','capColor'],['art2','artworkColor']] as any)q(id).addEventListener('input',(e:any)=>{settings[key]=e.target.value;queue()});
+for(const [id,key] of [['art-color','artworkColor'],['base-color','baseColor'],['cap-color','capColor'],['art2','artworkColor']] as any)
+  q(id).addEventListener('input',(e:any)=>{settings[key]=e.target.value;render();setStatus('Color updated');});
 q('threshold').oninput=(e:any)=>{settings.imageThreshold=+(e.target as HTMLInputElement).value;q('threshold-value').textContent=String(settings.imageThreshold);if(source==='image'&&imagePreview)rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing).then(x=>{svg=x;queue()})};
 q('colors').oninput=(e:any)=>{settings.imageColors=+(e.target as HTMLInputElement).value;q('colors-value').textContent=String(settings.imageColors);if(source==='image'&&imagePreview)rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing).then(x=>{svg=x;queue()})};
 
