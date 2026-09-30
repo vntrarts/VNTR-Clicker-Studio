@@ -115,7 +115,16 @@ function render(){
   const swMat=new THREE.MeshStandardMaterial({color:0x252a31,roughness:.42,metalness:.15,clippingPlanes:settings.cutaway?[new THREE.Plane(new THREE.Vector3(-1,0,0),0)]:[]});
   const placements=design.switchPlacements||[[0,0]];
   placements.forEach((p:number[],idx:number)=>{const sw=new THREE.Mesh(manifoldToThree(design.switchPart,THREE),swMat);sw.name='switch-key-'+idx;sw.position.x=p[0];sw.position.y=p[1];switchGroup.add(sw)});
-  if(settings.viewMode==='exploded'){cap.position.z=settings.baseHeight+settings.capHeight+7;switchGroup.position.z=settings.baseHeight+settings.capHeight+14}else{cap.position.z=settings.baseHeight;switchGroup.position.z=settings.baseHeight}
+  // switchPreview() is modeled relative to the cap's top face, so the
+  // assembled switch must share the cap-top Z plane rather than the base-top.
+  const assembledSwitchZ=settings.baseHeight+settings.capHeight;
+  if(settings.viewMode==='exploded'){
+    cap.position.z=assembledSwitchZ+7;
+    switchGroup.position.z=assembledSwitchZ+7;
+  }else{
+    cap.position.z=settings.baseHeight;
+    switchGroup.position.z=assembledSwitchZ;
+  }
   root.add(base,cap);if(settings.showSwitch)root.add(switchGroup);
   if(design.artworkParts?.length){
     for(const part of design.artworkParts){
