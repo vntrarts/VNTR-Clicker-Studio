@@ -165,15 +165,83 @@ const keyStyleSelect=q('keychain').querySelector('select') as HTMLSelectElement;
 const orientationSelect=q('orientation').querySelector('select') as HTMLSelectElement; orientationSelect.onchange=()=>{settings.printOrientation=orientationSelect.value as any;render()};
 
 
+async function readFileAsDataUrl(file:File):Promise<string>{
+  return await new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>resolve(String(fr.result||''));
+    fr.onerror=()=>reject(fr.error||new Error('Could not read file'));
+    fr.readAsDataURL(file);
+  });
+}
+async function readFileAsText(file:File):Promise<string>{
+  return await new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onload=()=>resolve(String(fr.result||''));
+    fr.onerror=()=>reject(fr.error||new Error('Could not read file'));
+    fr.readAsText(file);
+  });
+}
+function setStatus(message:string){q('status').textContent=message}
+function makeFilePicker(accept:string,onFile:(file:File)=>Promise<void>){
+  const input=E('input',{class:'file',type:'file',accept}) as HTMLInputElement;
+  input.addEventListener('change',async()=>{
+    const file=input.files?.[0];
+    if(!file)return;
+    try{setStatus('Reading '+file.name+'…');await onFile(file)}
+    catch(e){console.error(e);setStatus((e as Error)?.message||'Could not import file')}
+    finally{input.value=''}
+  });
+  return input;
+}
 function sourcePanel(){
   const box=q('source');box.innerHTML='';q('source-name').textContent=source.toUpperCase();
   if(source==='image'){
-    const d=E('div',{class:'drop'},'<strong>Drop image here</strong><span>PNG · JPG · WEBP</span><small>or click to browse</small>');
-    const input=E('input',{class:'file',type:'file',accept:'image/*'}) as HTMLInputElement;d.onclick=()=>input.click();
-    input.onchange=async()=>{const f=input.files?.[0];if(!f)return;name=f.name;const data=await new Promise<string>(r=>{const fr=new FileReader();fr.onload=()=>r(String(fr.result));fr.readAsDataURL(f)});imagePreview=data;svg=await rasterToSvg(data,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing);sourcePanel();queue()};
-    box.append(d,input,E('div',{class:'source-preview'},imagePreview?'<img src="'+imagePreview+'" alt="Artwork preview">':'<span class="tiny">No image selected</span>'));
+    const d=E('div',{class:'drop'},'<strong>Choose image</strong><span>PNG · JPG · WEBP · GIF</span><small>Click to browse or drag & drop</small>');
+    const input=makeFilePicker('image/png,image/jpeg,image/webp,image/gif',async(file)=>{
+      name=file.name;
+      imagePreview=await readFileAsDataUrl(file);
+      setStatus('Tracing image…');
+      svg=await rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing);
+      sourcePanel();
+      queue();
+    });
+    d.addEventListener('click',()=>input.click());
+    d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover')});
+    d.addEventListener('dragleave',()=>d.classList.remove('dragover'));
+    d.addEventListener('drop',async e=>{
+      e.preventDefault();d.classList.remove('dragover');
+      const file=e.dataTransfer?.files?.[0];
+      if(!file)return;
+      try{
+        name=file.name;imagePreview=await readFileAsDataUrl(file);setStatus('Tracing image…');
+        svg=await rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing);
+        sourcePanel();queue();
+      }catch(err){console.error(err);setStatus((err as Error)?.message||'Could not import image')}
+    });
+    const preview=imagePreview?'<img src="'+imagePreview+'" alt="Artwork preview">':'<span class="tiny">No image selected</span>';
+    box.append(d,input,E('div',{class:'source-preview'},preview));
   }else if(source==='svg'){
-    const t=E('textarea',{class:'codebox',placeholder:'Paste SVG markup here…'},svg) as HTMLTextAreaElement;t.oninput=()=>{svg=t.value;queue()};box.append(t);
+    const d=E('div',{class:'drop'},'<strong>Import SVG file</strong><span>SVG vector artwork</span><small>Click to browse or drag & drop</small>');
+    const input=makeFilePicker('image/svg+xml,.svg',async(file)=>{
+      name=file.name;
+      svg=await readFileAsText(file);
+      if(!/<svg[\s>]/i.test(svg))throw new Error('The selected file does not contain valid SVG markup.');
+      setStatus('SVG loaded — generating preview…');
+      sourcePanel();queue();
+    });
+    d.addEventListener('click',()=>input.click());
+    d.addEventListener('dragover',e=>{e.preventDefault();d.classList.add('dragover')});
+    d.addEventListener('dragleave',()=>d.classList.remove('dragover'));
+    d.addEventListener('drop',async e=>{
+      e.preventDefault();d.classList.remove('dragover');
+      const file=e.dataTransfer?.files?.[0];
+      if(!file)return;
+      try{name=file.name;svg=await readFileAsText(file);if(!/<svg[\s>]/i.test(svg))throw new Error('The selected file does not contain valid SVG markup.');setStatus('SVG loaded — generating preview…');sourcePanel();queue()}
+      catch(err){console.error(err);setStatus((err as Error)?.message||'Could not import SVG')}
+    });
+    const t=E('textarea',{class:'codebox',placeholder:'Or paste SVG markup here…'},svg) as HTMLTextAreaElement;
+    t.addEventListener('input',()=>{svg=t.value;setStatus('SVG changed — generating…');queue()});
+    box.append(d,input,t);
   }else if(source==='icon'){
     const icons:any={star:'M12 2l2.8 6 6.2.5-4.7 4 1.4 6.1L12 15.4 6.3 18.6l1.4-6.1-4.7-4L9.2 8z',heart:'M12 21S4 16.2 4 9.7A4.7 4.7 0 0 1 12 6a4.7 4.7 0 0 1 8 3.7C20 16.2 12 21 12 21z',check:'M5 12l4 4L19 6',bolt:'M13 2L4 14h6l-1 8 9-12h-6z',diamond:'M12 2l8 10-8 10L4 12z'};
     const g=E('div',{class:'icon-grid'});Object.keys(icons).forEach(k=>{const b=E('button',{class:'icon-btn'},'<svg viewBox="0 0 24 24"><path d="'+icons[k]+'" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span>'+k+'</span>');b.onclick=()=>{svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="'+icons[k]+'" fill="#000"/></svg>';queue()};g.append(b)});box.append(g);
