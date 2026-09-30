@@ -201,8 +201,11 @@ q('press-key').onpointerdown=()=>press(true);q('press-key').onpointerup=()=>pres
 addEventListener('keydown',e=>{if(e.code==='Space'&&!e.repeat){e.preventDefault();press(true)}});addEventListener('keyup',e=>{if(e.code==='Space')press(false)});
 
 q('reset-design').onclick=()=>{settings={...DEFAULTS};source='text';svg=defaultArtwork(settings);imagePreview='';sourcePanel();printerSelect.value=settings.printer;nozzleSelect.value=String(settings.nozzle);active('assembled',['assembled','exploded']);active('mode-color',['mode-color','mode-raised','mode-engraved']);queue()};
-q('save').onclick=()=>localStorage.setItem('vntr-clicker-design',JSON.stringify({version:2,settings,artworkSource:source,artworkSvg:svg,artworkName:name,imagePreview}));
-q('load').onclick=()=>{try{const raw=localStorage.getItem('vntr-clicker-design');if(!raw)return;const d=JSON.parse(raw) as Partial<DesignDocument>;settings={...DEFAULTS,...(d.settings||{})};source=d.artworkSource||'text';svg=d.artworkSvg||defaultArtwork(settings);name=d.artworkName||'VNTR';imagePreview=d.imagePreview||'';printerSelect.value=settings.printer;nozzleSelect.value=String(settings.nozzle);sourcePanel();queue()}catch{q('status').textContent='Saved project could not be loaded'}};
+const projectPayload=()=>JSON.stringify({version:3,settings,artworkSource:source,artworkSvg:svg,artworkName:name,imagePreview},null,2);
+q('save').onclick=()=>{const raw=projectPayload();localStorage.setItem('vntr-clicker-design',raw);download(new Blob([raw],{type:'application/json'}),'vntr-clicker-project.json')};
+const loadInput=E('input',{type:'file',accept:'.json,application/json'}) as HTMLInputElement;loadInput.style.display='none';document.body.append(loadInput);
+q('load').onclick=()=>loadInput.click();
+loadInput.onchange=async()=>{try{const f=loadInput.files?.[0];if(!f)return;const d=JSON.parse(await f.text()) as Partial<DesignDocument>;settings={...DEFAULTS,...(d.settings||{})};source=d.artworkSource||'text';svg=d.artworkSvg||defaultArtwork(settings);name=d.artworkName||'VNTR';imagePreview=d.imagePreview||'';printerSelect.value=settings.printer;nozzleSelect.value=String(settings.nozzle);switchCountSelect.value=String(settings.switchCount);keyStyleSelect.value=settings.keyringStyle;orientationSelect.value=settings.printOrientation;sourcePanel();queue()}catch{q('status').textContent='Project file could not be loaded'}loadInput.value=''};
 
 q('stl').onclick=()=>design&&download(meshToSTL(design.base),'vntr-base.stl');
 q('capstl').onclick=()=>design&&download(meshToSTL(design.cap),'vntr-cap.stl');
