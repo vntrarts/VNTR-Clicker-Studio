@@ -92,7 +92,8 @@ export function buildDesign(s:DesignSettings,svg?:string):Parts{
   }
   const stem=Manifold.cube([4.2,4.2,s.stemHeight],true).translate([0,0,-s.stemHeight/2+.04]);
   cap=cap.add(stem);
-  let full=base.add(cap.translate([0,0,s.baseHeight]));\n  if(artwork)full=full.add(artwork.translate([0,0,s.baseHeight]));
+  let full=base.add(cap.translate([0,0,s.baseHeight]));
+  if(artwork)full=full.add(artwork.translate([0,0,s.baseHeight]));
   const m=full.getMesh(),bb=full.boundingBox();
   const warning=s.tolerance<.2?'Low MX tolerance may fit tightly.':s.wall<s.nozzle*1.5?'Wall thickness is below the recommended nozzle multiplier.':s.capClearance<.15?'Cap clearance is tight; test-fit before printing.':null;
   return {

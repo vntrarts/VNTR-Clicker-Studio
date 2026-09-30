@@ -103,7 +103,8 @@ function render(){
   const base=new THREE.Mesh(manifoldToThree(design.base,THREE),material(settings.baseColor,.76));
   const cap=new THREE.Mesh(manifoldToThree(design.cap,THREE),material(settings.capColor,.6));
   const sw=new THREE.Mesh(manifoldToThree(design.switchPart,THREE),new THREE.MeshStandardMaterial({color:0x252a31,roughness:.42,metalness:.15,clippingPlanes:settings.cutaway?[new THREE.Plane(new THREE.Vector3(-1,0,0),0)]:[]}));
-  sw.name='switch-key';\n  if(settings.viewMode==='exploded'){cap.position.z=settings.baseHeight+settings.capHeight+7;sw.position.z=settings.baseHeight+settings.capHeight+14}else{cap.position.z=settings.baseHeight;sw.position.z=settings.baseHeight}
+  sw.name='switch-key';
+  if(settings.viewMode==='exploded'){cap.position.z=settings.baseHeight+settings.capHeight+7;sw.position.z=settings.baseHeight+settings.capHeight+14}else{cap.position.z=settings.baseHeight;sw.position.z=settings.baseHeight}
   root.add(base,cap);if(settings.showSwitch)root.add(sw);
   if(design.artworkParts?.length){
     for(const part of design.artworkParts){
