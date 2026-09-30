@@ -9,7 +9,7 @@ export interface DesignSettings{
   wall:number;tolerance:number;mxDepth:number;artworkMode:ArtworkMode;artworkScale:number;artworkHeight:number;
   imageThreshold:number;imageInvert:boolean;artworkColor:string;baseColor:string;capColor:string;
   keyring:boolean;keyringStyle:'loop'|'hole';keyringDiameter:number;keyringAngle:number;showSwitch:boolean;cutaway:boolean;viewMode:ViewMode;nozzle:number;printer:string;
-  text:string;font:string;imageColors:number;printOrientation:PrintOrientation;capClearance:number;stemHeight:number;
+  text:string;font:string;imageColors:number;printOrientation:PrintOrientation;capClearance:number;stemHeight:number;switchCount:number;switchSpacing:number;removeBackground:boolean;smoothing:number;
 }
 export interface DesignDocument{version:2;settings:DesignSettings;artworkSource:ArtworkSource;artworkSvg?:string;artworkName?:string;imagePreview?:string;}
 export const DEFAULTS:DesignSettings={
