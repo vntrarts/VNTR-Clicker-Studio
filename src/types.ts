@@ -8,7 +8,7 @@ export interface DesignSettings{
   shape:Shape;width:number;depth:number;baseHeight:number;capHeight:number;cornerRadius:number;
   wall:number;tolerance:number;mxDepth:number;artworkMode:ArtworkMode;artworkScale:number;artworkHeight:number;
   imageThreshold:number;imageInvert:boolean;artworkColor:string;baseColor:string;capColor:string;
-  keyring:boolean;showSwitch:boolean;cutaway:boolean;viewMode:ViewMode;nozzle:number;printer:string;
+  keyring:boolean;keyringStyle:'loop'|'hole';keyringDiameter:number;keyringAngle:number;showSwitch:boolean;cutaway:boolean;viewMode:ViewMode;nozzle:number;printer:string;
   text:string;font:string;imageColors:number;printOrientation:PrintOrientation;capClearance:number;stemHeight:number;
 }
 export interface DesignDocument{version:2;settings:DesignSettings;artworkSource:ArtworkSource;artworkSvg?:string;artworkName?:string;imagePreview?:string;}
@@ -17,5 +17,5 @@ export const DEFAULTS:DesignSettings={
   artworkMode:'raised',artworkScale:.78,artworkHeight:.55,imageThreshold:128,imageInvert:false,
   artworkColor:'#ff5b3d',baseColor:'#20242b',capColor:'#2e343e',keyring:false,showSwitch:true,cutaway:false,
   viewMode:'assembled',nozzle:.4,printer:'Anycubic Kobra X',text:'VNTR',font:'Arial',imageColors:4,
-  printOrientation:'face-down',capClearance:.2,stemHeight:1.2
+  printOrientation:'face-down',capClearance:.2,stemHeight:1.2,switchCount:1,switchSpacing:18,removeBackground:true,smoothing:.15
 };
