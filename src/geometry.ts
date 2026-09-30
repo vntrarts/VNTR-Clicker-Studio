@@ -82,9 +82,18 @@ function svgParts(svg:string,s:DesignSettings){
 function unionArtwork(parts:any[]){if(!parts.length)return null;let u=parts[0].mesh;for(let i=1;i<parts.length;i++)u=u.add(parts[i].mesh);return u}
 function switchPreview(){
   const {Manifold}=api;
-  let sw=Manifold.cube([13.8,13.8,5.2],true).translate([0,0,8.6]);
-  sw=sw.add(Manifold.cube([11.8,11.8,4.0],true).translate([0,0,13.2]));
-  sw=sw.add(Manifold.cube([4.2,4.2,3.0],true).translate([0,0,16.7]));
+  // Coordinates are relative to the top face of the clicker cap (Z=0).
+  // The switch body is intentionally embedded through the cap/base, while
+  // only the upper housing and MX stem remain visibly above the cap.
+  let sw=Manifold.cube([13.8,13.8,6.0],true).translate([0,0,-3.0]);
+  sw=sw.add(Manifold.cube([12.0,12.0,3.2],true).translate([0,0,1.2]));
+  // Four small retention clips give the housing a more recognizable MX profile.
+  for(const [x,y] of [[6.9,0],[-6.9,0],[0,6.9],[0,-6.9]])
+    sw=sw.add(Manifold.cube([1.4,3.0,2.4],true).translate([x,y,-1.1]));
+  // Cherry-MX-style cross stem.
+  const stemZ=4.3,stemH=4.2;
+  sw=sw.add(Manifold.cube([4.2,1.0,stemH],true).translate([0,0,stemZ]));
+  sw=sw.add(Manifold.cube([1.0,4.2,stemH],true).translate([0,0,stemZ]));
   return sw;
 }
 export interface Parts{
