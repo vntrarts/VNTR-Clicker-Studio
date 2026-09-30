@@ -74,7 +74,9 @@ function svgParts(svg:string,s:DesignSettings){
   }
   if(!groups.size)return [];
   const cx=(minX+maxX)/2,cy=(minY+maxY)/2,scale=Math.min(s.width*.72*s.artworkScale/Math.max(1,maxX-minX),s.depth*.58*s.artworkScale/Math.max(1,maxY-minY)),out:any[]=[];
-  for(const [color,polys] of groups){const cs=CrossSection.evenOdd(polys.map((p:any)=>p.map(([x,y]:number[])=>[(x-cx)*scale,(y-cy)*scale])));const h=s.artworkMode==='flat'?Math.min(.18,s.artworkHeight):s.artworkHeight;let z=s.capHeight-(s.artworkMode==='raised'?Math.min(.02,s.artworkHeight/10):s.artworkMode==='flat'?Math.min(.06,s.artworkHeight):0);if(s.artworkMode==='engraved')z=Math.max(0,s.capHeight-s.artworkHeight+.02);out.push({mesh:cs.extrude(Math.max(.08,h)).translate([0,0,z]),color})}
+  for(const [color,polys] of groups){const rings=polys.map((p:any)=>p.map(([x,y]:number[])=>[(x-cx)*scale,(y-cy)*scale]));
+    // Manifold 3.x does not expose CrossSection.evenOdd; construct the section from polygons.
+    const cs=CrossSection.ofPolygons(rings);const h=s.artworkMode==='flat'?Math.min(.18,s.artworkHeight):s.artworkHeight;let z=s.capHeight-(s.artworkMode==='raised'?Math.min(.02,s.artworkHeight/10):s.artworkMode==='flat'?Math.min(.06,s.artworkHeight):0);if(s.artworkMode==='engraved')z=Math.max(0,s.capHeight-s.artworkHeight+.02);out.push({mesh:cs.extrude(Math.max(.08,h)).translate([0,0,z]),color})}
   return out;
 }
 function unionArtwork(parts:any[]){if(!parts.length)return null;let u=parts[0].mesh;for(let i=1;i<parts.length;i++)u=u.add(parts[i].mesh);return u}
