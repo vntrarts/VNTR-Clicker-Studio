@@ -36,7 +36,15 @@ function select(label:string,key:keyof DesignSettings,opts:string[]){
 }
 function check(label:string,key:keyof DesignSettings){
   const l=E('label',{class:'check'}),i=E('input',{type:'checkbox'}) as HTMLInputElement;
-  i.checked=Boolean(settings[key]);i.onchange=()=>{(settings as any)[key]=i.checked;queue()};l.append(i,document.createTextNode(label));return l;
+  i.checked=Boolean(settings[key]);
+  i.onchange=async()=>{
+    (settings as any)[key]=i.checked;
+    if(key==='removeBackground' && source==='image' && imagePreview){
+      svg=await rasterToSvg(imagePreview,settings.imageColors,settings.imageThreshold,settings.imageInvert,settings.removeBackground,settings.smoothing);
+    }
+    queue();
+  };
+  l.append(i,document.createTextNode(label));return l;
 }
 
 app.innerHTML=`
