@@ -83,12 +83,11 @@ export function buildDesign(s:DesignSettings,svg?:string):Parts{
   const inset=Math.min(Math.max(s.capClearance,.05),Math.min(s.width,s.depth)/4);
   const capOutline=body.offset(-inset,'Round',2,32);
   let cap=capOutline.extrude(s.capHeight);
-  let artwork:any=null;
+  let artwork:any=null;let artworkParts:{mesh:any;color:string}[]=[];
   if(svg){
-    if(s.artworkMode==='engraved'){
-      const cut=artworkPlacement(svg,s,'engraved');
-      if(cut)cap=cap.subtract(cut);
-    }else artwork=artworkPlacement(svg,s,s.artworkMode);
+    artworkParts=svgParts(svg,s);
+    if(s.artworkMode==='engraved'){const cut=unionArtwork(artworkParts);if(cut)cap=cap.subtract(cut);artworkParts=[]}
+    else artwork=unionArtwork(artworkParts);
   }
   const stem=Manifold.cube([4.2,4.2,s.stemHeight],true).translate([0,0,-s.stemHeight/2+.04]);
   cap=cap.add(stem);
